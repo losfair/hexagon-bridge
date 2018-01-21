@@ -3,4 +3,9 @@ name = "hexagon-jit"
 version = "0.1.0"
 authors = ["losfair <zhy20000919@hotmail.com>"]
 
+[lib]
+name = "hexagon_jit"
+crate-type = ["cdylib"]
+
 [dependencies]
+hexagon-vm-core = { path = "../hexagon-vm-core" }

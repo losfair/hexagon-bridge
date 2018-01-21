@@ -1,7 +1,5 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+extern crate hexagon_vm_core;
+
+pub mod api;
+pub mod glue;
+pub mod provider;
