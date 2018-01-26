@@ -8,6 +8,7 @@ use super::provider::{InvokeCallback, GenericJitProvider};
 use std::ptr;
 use hexagon_vm_core::hybrid::program::{Program, ProgramInfo};
 
+#[cfg(feature = "active_import")]
 #[allow(improper_ctypes)]
 extern "C" {
     fn hexagon_hybrid_external_global_invoke_callback(handle: *const ContextHandle, fn_id: u32, user_data: usize) -> i32;
@@ -23,8 +24,14 @@ pub unsafe extern "C" fn hexagon_hybrid_executor_destroy(e: *mut Executor) {
     Box::from_raw(e);
 }
 
+#[cfg(feature = "active_import")]
 unsafe extern "C" fn call_global_invoke(handle: *const ContextHandle, fn_id: u32, user_data: usize) -> i32 {
     hexagon_hybrid_external_global_invoke_callback(handle, fn_id, user_data)
+}
+
+#[cfg(not(feature = "active_import"))]
+unsafe extern "C" fn call_global_invoke(_: *const ContextHandle, _: u32, _: usize) -> i32 {
+    panic!("call_global_invoke called with active_import disabled");
 }
 
 #[no_mangle]
