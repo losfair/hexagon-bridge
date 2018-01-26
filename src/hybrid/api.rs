@@ -1,34 +1,34 @@
-use provider::{ContextOwner, ContextHandle};
+use super::provider::{ContextOwner, ContextHandle};
 use hexagon_vm_core::hybrid::executor::Executor;
 use hexagon_vm_core::hybrid::program_context::{
     ProgramContext,
     CommonProgramContext
 };
-use provider::{InvokeCallback, GenericJitProvider};
+use super::provider::{InvokeCallback, GenericJitProvider};
 use std::ptr;
 use hexagon_vm_core::hybrid::program::{Program, ProgramInfo};
 
 #[allow(improper_ctypes)]
 extern "C" {
-    fn hexagon_external_global_invoke_callback(handle: *const ContextHandle, fn_id: u32, user_data: usize) -> i32;
+    fn hexagon_hybrid_external_global_invoke_callback(handle: *const ContextHandle, fn_id: u32, user_data: usize) -> i32;
 }
 
 #[no_mangle]
-pub extern "C" fn hexagon_executor_create() -> *mut Executor {
+pub extern "C" fn hexagon_hybrid_executor_create() -> *mut Executor {
     Box::into_raw(Box::new(Executor::new()))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn hexagon_executor_destroy(e: *mut Executor) {
+pub unsafe extern "C" fn hexagon_hybrid_executor_destroy(e: *mut Executor) {
     Box::from_raw(e);
 }
 
 unsafe extern "C" fn call_global_invoke(handle: *const ContextHandle, fn_id: u32, user_data: usize) -> i32 {
-    hexagon_external_global_invoke_callback(handle, fn_id, user_data)
+    hexagon_hybrid_external_global_invoke_callback(handle, fn_id, user_data)
 }
 
 #[no_mangle]
-pub extern "C" fn hexagon_executor_load_program<'a>(
+pub extern "C" fn hexagon_hybrid_executor_load_program<'a>(
     e: &'a Executor,
     code: *const u8,
     len: u32,
@@ -68,21 +68,21 @@ pub extern "C" fn hexagon_executor_load_program<'a>(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn hexagon_context_destroy<'a>(
+pub unsafe extern "C" fn hexagon_hybrid_context_destroy<'a>(
     ctx: *mut ContextOwner<'a>
 ) {
     Box::from_raw(ctx);
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn hexagon_context_run(
+pub unsafe extern "C" fn hexagon_hybrid_context_run(
     ctx: &ContextOwner
 ) {
     ctx.context.get_executor().eval_program(&ctx.context, 0);
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn hexagon_context_set_global(
+pub unsafe extern "C" fn hexagon_hybrid_context_set_global(
     ctx: &ContextOwner,
     id: u32,
     value: u32
@@ -91,7 +91,7 @@ pub unsafe extern "C" fn hexagon_context_set_global(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn hexagon_context_get_global(
+pub unsafe extern "C" fn hexagon_hybrid_context_get_global(
     ctx: &ContextOwner,
     id: u32
 ) -> u32 {
