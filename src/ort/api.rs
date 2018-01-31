@@ -12,6 +12,11 @@ use rmp_serde;
 use serde_json;
 
 #[no_mangle]
+pub extern "C" fn hexagon_ort_get_value_size() -> u32 {
+    ::std::mem::size_of::<Value>() as u32
+}
+
+#[no_mangle]
 pub extern "C" fn hexagon_ort_executor_create() -> *mut Executor {
     Box::into_raw(Box::new(Executor::new()))
 }
@@ -53,6 +58,14 @@ pub extern "C" fn hexagon_ort_executor_impl_run_callable(
     }
 }
 
+// this is actually unsafe but since we do not
+// make this pub it is fine
+fn write_place<T>(place: *mut T, value: T) {
+    unsafe {
+        ::std::ptr::write(place, value);
+    }
+}
+
 /// Returns a reference to the requested static object, otherwise null.
 ///
 /// It should be noted that the address of the same `Value` is **not**
@@ -60,25 +73,27 @@ pub extern "C" fn hexagon_ort_executor_impl_run_callable(
 /// of the executor may result in undefined behavior.
 #[no_mangle]
 pub extern "C" fn hexagon_ort_executor_impl_get_static_object(
+    ret_place: *mut Value,
     e: &ExecutorImpl,
     key: *const c_char,
-) -> *const Value {
+) {
     let key = unsafe { CStr::from_ptr(key).to_str().unwrap() };
     let obj = match e.get_static_object(key) {
         Some(v) => v,
-        None => return null()
+        None => return write_place(ret_place, Value::Null)
     };
-    obj
+    write_place(ret_place, (*obj).into())
 }
 
 #[no_mangle]
 pub extern "C" fn hexagon_ort_executor_impl_invoke(
+    ret_place: *mut Value,
     e: &mut ExecutorImpl,
     target: *const Value,
     this: *const Value,
-    args: *const *const Value,
+    args: *const Value,
     n_args: u32
-) -> *mut Value {
+) {
     let target = if target.is_null() {
         Value::Null
     } else {
@@ -89,30 +104,24 @@ pub extern "C" fn hexagon_ort_executor_impl_invoke(
     } else {
         unsafe { *this }
     };
-    let args: Vec<Value> = unsafe {
+    let args: &[Value] = unsafe {
         ::std::slice::from_raw_parts(args, n_args as usize)
-    }.iter().map(|v| {
-        if v.is_null() {
-            Value::Null
-        } else {
-            unsafe { **v }
-        }
-    }).collect();
+    };
 
     let result = catch_unwind(AssertUnwindSafe(
-        || e.invoke(target, this, args.as_slice())
+        || e.invoke(target, this, args)
     ));
-    match result {
-        Ok(_) => Box::into_raw(Box::new(e.get_current_frame().pop_exec())),
+    write_place(ret_place, match result {
+        Ok(_) => e.get_current_frame().pop_exec(),
         Err(e) => {
             if let Ok(e) = e.downcast::<VMError>() {
                 eprintln!("Invoke failed: {}", e.unwrap().to_string());
             } else {
                 eprintln!("Unknown error");
             }
-            null_mut()
+            Value::Null
         }
-    }
+    })
 }
 
 #[no_mangle]
@@ -124,15 +133,14 @@ pub unsafe extern "C" fn hexagon_ort_function_destroy(
 
 #[no_mangle]
 pub extern "C" fn hexagon_ort_function_load_native(
-    cb: extern "C" fn (&mut ExecutorImpl, *const ()) -> *mut Value,
+    cb: extern "C" fn (*mut Value /* ret_place */, &mut ExecutorImpl, *const ()),
     user_data: *const ()
 ) -> *mut Function {
     let f = Box::new(move |e: &mut ExecutorImpl| {
-        let ret = cb(e, user_data);
-        if ret.is_null() {
-            Value::Null
-        } else {
-            *unsafe { Box::from_raw(ret) }
+        unsafe {
+            let mut ret: Value = ::std::mem::zeroed();
+            cb(&mut ret, e, user_data);
+            ret
         }
     });
     let f = Function::from_native(f);
@@ -198,31 +206,21 @@ pub extern "C" fn hexagon_ort_function_load_virtual(
 }
 
 #[no_mangle]
-pub extern "C" fn hexagon_ort_value_create_from_null() -> *mut Value {
-    Box::into_raw(Box::new(Value::Null))
+pub extern "C" fn hexagon_ort_value_create_from_null(ret_place: *mut Value) {
+    write_place(ret_place, Value::Null)
 }
 
 #[no_mangle]
-pub extern "C" fn hexagon_ort_value_create_from_bool(v: u32) -> *mut Value {
-    Box::into_raw(Box::new(Value::Bool(if v == 0 { false } else { true })))
+pub extern "C" fn hexagon_ort_value_create_from_bool(ret_place: *mut Value, v: u32) {
+    write_place(ret_place, Value::Bool(if v == 0 { false } else { true }))
 }
 
 #[no_mangle]
-pub extern "C" fn hexagon_ort_value_create_from_i64(v: i64) -> *mut Value {
-    Box::into_raw(Box::new(Value::Int(v)))
+pub extern "C" fn hexagon_ort_value_create_from_i64(ret_place: *mut Value, v: i64) {
+    write_place(ret_place, Value::Int(v))
 }
 
 #[no_mangle]
-pub extern "C" fn hexagon_ort_value_create_from_f64(v: f64) -> *mut Value {
-    Box::into_raw(Box::new(Value::Float(v)))
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn hexagon_ort_value_destroy(v: *mut Value) {
-    Box::from_raw(v);
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn hexagon_ort_value_clone(v: &Value) -> *mut Value {
-    Box::into_raw(Box::new(v.clone()))
+pub extern "C" fn hexagon_ort_value_create_from_f64(ret_place: *mut Value, v: f64) {
+    write_place(ret_place, Value::Float(v))
 }
