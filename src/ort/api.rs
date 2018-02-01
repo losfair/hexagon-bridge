@@ -131,12 +131,35 @@ pub unsafe extern "C" fn hexagon_ort_function_destroy(
     Box::from_raw(f);
 }
 
+struct NativeFunctionGuard {
+    destructor: Option<extern "C" fn (*const ())>,
+    user_data: *const (),
+    always_false: bool
+}
+
+impl Drop for NativeFunctionGuard {
+    fn drop(&mut self) {
+        if let Some(dtor) = self.destructor {
+            (dtor)(self.user_data);
+        }
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn hexagon_ort_function_load_native(
     cb: extern "C" fn (*mut Value /* ret_place */, &mut ExecutorImpl, *const ()),
+    destructor: Option<extern "C" fn (*const ())>,
     user_data: *const ()
 ) -> *mut Function {
+    let guard = NativeFunctionGuard {
+        destructor: destructor,
+        user_data: user_data,
+        always_false: false
+    };
+
     let f = Box::new(move |e: &mut ExecutorImpl| {
+        let _v = guard.always_false;
+
         unsafe {
             let mut ret: Value = ::std::mem::zeroed();
             cb(&mut ret, e, user_data);
@@ -223,4 +246,45 @@ pub extern "C" fn hexagon_ort_value_create_from_i64(ret_place: *mut Value, v: i6
 #[no_mangle]
 pub extern "C" fn hexagon_ort_value_create_from_f64(ret_place: *mut Value, v: f64) {
     write_place(ret_place, Value::Float(v))
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_value_read_i64(ret_place: *mut i64, v: &Value) -> i32 {
+    match *v {
+        Value::Int(v) => {
+            write_place(ret_place, v);
+            0
+        },
+        _ => 1
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_value_read_f64(ret_place: *mut f64, v: &Value) -> i32 {
+    match *v {
+        Value::Float(v) => {
+            write_place(ret_place, v);
+            0
+        },
+        _ => 1
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_value_read_null(v: &Value) -> i32 {
+    match *v {
+        Value::Null => 0,
+        _ => 1
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_value_read_bool(ret_place: *mut i32, v: &Value) -> i32 {
+    match *v {
+        Value::Bool(v) => {
+            write_place(ret_place, if v { 1 } else { 0 });
+            0
+        },
+        _ => 1
+    }
 }
