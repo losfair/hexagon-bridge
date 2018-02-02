@@ -109,7 +109,7 @@ pub extern "C" fn hexagon_ort_executor_impl_invoke(
     };
 
     let result = catch_unwind(AssertUnwindSafe(
-        || e.invoke(target, this, args)
+        || e.invoke(target, this, None, args)
     ));
     write_place(ret_place, match result {
         Ok(_) => e.get_current_frame().pop_exec(),
@@ -168,6 +168,13 @@ pub extern "C" fn hexagon_ort_function_load_native(
     });
     let f = Function::from_native(f);
     Box::into_raw(Box::new(f))
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_function_enable_optimization(
+    f: &mut Function
+) {
+    f.enable_optimization();
 }
 
 #[no_mangle]
