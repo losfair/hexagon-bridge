@@ -204,8 +204,11 @@ pub extern "C" fn hexagon_ort_function_load_virtual(
             };
             let f = match catch_unwind(|| Function::from_virtual_info(vinfo)) {
                 Ok(v) => v,
-                Err(_) => {
-                    eprintln!("CFG verification failed");
+                Err(e) => {
+                    eprintln!("CFG verification failed: {}", match e.downcast::<VMError>() {
+                        Ok(v) => v.unwrap().to_string(),
+                        Err(_) => "Unknown error".to_string()
+                    });
                     return null_mut();
                 }
             };
@@ -221,8 +224,11 @@ pub extern "C" fn hexagon_ort_function_load_virtual(
             };
             let f = match catch_unwind(|| Function::from_virtual_info(vinfo)) {
                 Ok(v) => v,
-                Err(_) => {
-                    eprintln!("CFG verification failed");
+                Err(e) => {
+                    eprintln!("CFG verification failed: {}", match e.downcast::<VMError>() {
+                        Ok(v) => v.unwrap().to_string(),
+                        Err(_) => "Unknown error".to_string()
+                    });
                     return null_mut();
                 }
             };
