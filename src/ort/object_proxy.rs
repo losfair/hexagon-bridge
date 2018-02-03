@@ -7,6 +7,7 @@ use hexagon_vm_core::object_pool::ObjectPool;
 use hexagon_vm_core::value::Value;
 use hexagon_vm_core::errors::VMError;
 
+pub type Destructor = extern "C" fn (data: *const ());
 pub type OnCall = extern "C" fn (ret_place: *mut Value, data: *const (), n_args: u32, args: *const Value) -> i32;
 pub type OnGetField = extern "C" fn (ret_place: *mut Value, data: *const (), field_name: *const c_char) -> i32;
 pub type OnSetField = extern "C" fn (data: *const (), field_name: *const c_char, value: *const Value) -> i32;
@@ -19,6 +20,7 @@ pub type OnToBool = extern "C" fn (ret_place: *mut u32, data: *const ()) -> i32;
 
 pub struct ObjectProxy {
     data: *const (),
+    pub(crate) destructor: Option<Destructor>,
     pub(crate) on_call: Option<OnCall>,
     pub(crate) on_get_field: Option<OnGetField>,
     pub(crate) on_set_field: Option<OnSetField>,
@@ -34,6 +36,7 @@ impl ObjectProxy {
     pub fn new(data: *const ()) -> ObjectProxy {
         ObjectProxy {
             data: data,
+            destructor: None,
             on_call: None,
             on_get_field: None,
             on_set_field: None,
@@ -43,6 +46,14 @@ impl ObjectProxy {
             on_to_str: None,
             on_to_string: None,
             on_to_bool: None
+        }
+    }
+}
+
+impl Drop for ObjectProxy {
+    fn drop(&mut self) {
+        if let Some(f) = self.destructor {
+            (f)(self.data);
         }
     }
 }

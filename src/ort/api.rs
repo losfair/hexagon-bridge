@@ -338,6 +338,14 @@ pub unsafe extern "C" fn hexagon_ort_object_proxy_destroy(
 }
 
 #[no_mangle]
+pub extern "C" fn hexagon_ort_object_proxy_set_destructor(
+    p: &mut ObjectProxy,
+    f: Option<object_proxy::Destructor>
+) {
+    p.destructor = f;
+}
+
+#[no_mangle]
 pub extern "C" fn hexagon_ort_object_proxy_set_on_call(
     p: &mut ObjectProxy,
     f: Option<object_proxy::OnCall>
