@@ -264,6 +264,12 @@ pub extern "C" fn hexagon_ort_value_create_from_f64(ret_place: *mut Value, v: f6
 }
 
 #[no_mangle]
+pub extern "C" fn hexagon_ort_value_create_from_string(ret_place: *mut Value, v: *const c_char, e: &mut ExecutorImpl) {
+    let id = e.get_object_pool_mut().allocate(Box::new(unsafe { CStr::from_ptr(v).to_str().unwrap() }.to_string()));
+    write_place(ret_place, Value::Object(id))
+}
+
+#[no_mangle]
 pub extern "C" fn hexagon_ort_value_read_i64(ret_place: *mut i64, v: &Value) -> i32 {
     match *v {
         Value::Int(v) => {
@@ -305,6 +311,17 @@ pub extern "C" fn hexagon_ort_value_read_bool(ret_place: *mut i32, v: &Value) ->
 }
 
 #[no_mangle]
+pub extern "C" fn hexagon_ort_value_get_type(v: &Value) -> u8 {
+    match *v {
+        Value::Bool(_) => b'B',
+        Value::Float(_) => b'F',
+        Value::Int(_) => b'I',
+        Value::Null => b'N',
+        Value::Object(_) => b'O'
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn hexagon_ort_value_read_string(v: &Value, executor: &ExecutorImpl) -> *mut c_char {
     catch_unwind(AssertUnwindSafe(|| CString::new(ValueContext::new(
         v,
@@ -322,6 +339,19 @@ pub extern "C" fn hexagon_ort_executor_pin_object_proxy(
         Box::from_raw(p)
     };
     let id = e.get_object_pool_mut().allocate(p);
+    write_place(ret_place, Value::Object(id))
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_executor_pin_function(
+    ret_place: *mut Value,
+    e: &mut ExecutorImpl,
+    f: *mut Function
+) {
+    let f = unsafe {
+        Box::from_raw(f)
+    };
+    let id = e.get_object_pool_mut().allocate(f);
     write_place(ret_place, Value::Object(id))
 }
 
