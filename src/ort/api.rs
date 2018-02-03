@@ -1,12 +1,14 @@
 use std::os::raw::c_char;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::ptr::{null, null_mut};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use hexagon_vm_core::executor::{Executor, ExecutorImpl};
-use hexagon_vm_core::value::Value;
+use hexagon_vm_core::value::{Value, ValueContext};
 use hexagon_vm_core::function::Function;
 use hexagon_vm_core::function::VirtualFunctionInfo;
 use hexagon_vm_core::errors::VMError;
+use super::object_proxy;
+use super::object_proxy::ObjectProxy;
 
 use rmp_serde;
 use serde_json;
@@ -300,4 +302,53 @@ pub extern "C" fn hexagon_ort_value_read_bool(ret_place: *mut i32, v: &Value) ->
         },
         _ => 1
     }
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_value_read_string(v: &Value, executor: &ExecutorImpl) -> *mut c_char {
+    catch_unwind(AssertUnwindSafe(|| CString::new(ValueContext::new(
+        v,
+        &executor.get_object_pool()
+    ).to_str().as_ref()).unwrap().into_raw())).unwrap_or(null_mut())
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_executor_pin_object_proxy(
+    ret_place: *mut Value,
+    e: &mut ExecutorImpl,
+    p: *mut ObjectProxy
+) {
+    let p = unsafe {
+        Box::from_raw(p)
+    };
+    let id = e.get_object_pool_mut().allocate(p);
+    write_place(ret_place, Value::Object(id))
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_object_proxy_create(data: *const ()) -> *mut ObjectProxy {
+    Box::into_raw(Box::new(ObjectProxy::new(data)))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn hexagon_ort_object_proxy_destroy(
+    p: *mut ObjectProxy
+) {
+    Box::from_raw(p);
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_object_proxy_set_on_call(
+    p: &mut ObjectProxy,
+    f: Option<object_proxy::OnCall>
+) {
+    p.on_call = f;
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_object_proxy_set_on_get_field(
+    p: &mut ObjectProxy,
+    f: Option<object_proxy::OnGetField>
+) {
+    p.on_get_field = f;
 }
