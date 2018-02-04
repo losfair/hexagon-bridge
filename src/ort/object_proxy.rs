@@ -1,6 +1,8 @@
 use std::os::raw::c_char;
 use std::any::Any;
 use std::ffi::CString;
+use std::collections::HashMap;
+use smallvec::SmallVec;
 use hexagon_vm_core::executor::ExecutorImpl;
 use hexagon_vm_core::object::Object;
 use hexagon_vm_core::object_pool::ObjectPool;
@@ -29,7 +31,8 @@ pub struct ObjectProxy {
     pub(crate) on_to_f64: Option<OnToF64>,
     pub(crate) on_to_str: Option<OnToStr>,
     pub(crate) on_to_string: Option<OnToString>,
-    pub(crate) on_to_bool: Option<OnToBool>
+    pub(crate) on_to_bool: Option<OnToBool>,
+    pub(crate) static_fields: HashMap<String, Value>
 }
 
 impl ObjectProxy {
@@ -45,7 +48,8 @@ impl ObjectProxy {
             on_to_f64: None,
             on_to_str: None,
             on_to_string: None,
-            on_to_bool: None
+            on_to_bool: None,
+            static_fields: HashMap::new()
         }
     }
 }
@@ -60,7 +64,11 @@ impl Drop for ObjectProxy {
 
 impl Object for ObjectProxy {
     fn get_children(&self) -> Vec<usize> {
-        Vec::new()
+        self.static_fields.iter()
+            .map(|(k, v)| v)
+            .filter(|v| v.is_object())
+            .map(|v| v.as_object_id())
+            .collect()
     }
 
     fn as_any(&self) -> &Any {
@@ -77,7 +85,7 @@ impl Object for ObjectProxy {
 
             let frame = executor.get_current_frame();
             let n_args = frame.get_n_arguments();
-            let args: Vec<Value> = (0..n_args).map(|i| frame.get_argument(i).unwrap()).collect();
+            let args: SmallVec<[Value; 4]> = (0..n_args).map(|i| frame.get_argument(i).unwrap()).collect();
 
             ensure_proxied_ok(
                 if n_args > 0 {
@@ -93,11 +101,18 @@ impl Object for ObjectProxy {
     }
 
     fn get_field(&self, _pool: &ObjectPool, name: &str) -> Option<Value> {
+        if let Some(v) = self.static_fields.get(name) {
+            return Some(*v);
+        }
+
         if let Some(f) = self.on_get_field {
             let mut ret_place = Value::Null;
-            let name = CString::new(name).unwrap();
+
+            let mut name: SmallVec<[u8; 32]> = name.as_bytes().into();
+            name.push(0);
+
             ensure_proxied_ok(
-                (f)(&mut ret_place, self.data, name.as_ptr())
+                (f)(&mut ret_place, self.data, &name[0] as *const u8 as *const i8)
             );
             Some(ret_place)
         } else {

@@ -149,7 +149,7 @@ impl Drop for NativeFunctionGuard {
 
 #[no_mangle]
 pub extern "C" fn hexagon_ort_function_load_native(
-    cb: extern "C" fn (*mut Value /* ret_place */, &mut ExecutorImpl, *const ()),
+    cb: extern "C" fn (*mut Value /* ret_place */, &mut ExecutorImpl, *const ()) -> i32,
     destructor: Option<extern "C" fn (*const ())>,
     user_data: *const ()
 ) -> *mut Function {
@@ -164,7 +164,12 @@ pub extern "C" fn hexagon_ort_function_load_native(
 
         unsafe {
             let mut ret: Value = ::std::mem::zeroed();
-            cb(&mut ret, e, user_data);
+            let err = cb(&mut ret, e, user_data);
+
+            if err != 0 {
+                panic!(VMError::from("Native function returns error"));
+            }
+
             ret
         }
     });
@@ -373,6 +378,20 @@ pub extern "C" fn hexagon_ort_object_proxy_set_destructor(
     f: Option<object_proxy::Destructor>
 ) {
     p.destructor = f;
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_object_proxy_set_static_field(
+    p: &mut ObjectProxy,
+    k: *const c_char,
+    v: *const Value
+) {
+    let k = unsafe { CStr::from_ptr(k).to_str().unwrap() };
+    if v.is_null() {
+        p.static_fields.remove(k);
+    } else {
+        p.static_fields.insert(k.to_string(), unsafe { *v });
+    }
 }
 
 #[no_mangle]
