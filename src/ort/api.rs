@@ -128,6 +128,14 @@ pub extern "C" fn hexagon_ort_executor_impl_invoke(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn hexagon_ort_executor_impl_set_stack_limit(
+    e: &mut ExecutorImpl,
+    limit: u32
+) {
+    e.set_stack_limit(limit as usize);
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn hexagon_ort_function_destroy(
     f: *mut Function
 ) {
