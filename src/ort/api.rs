@@ -336,11 +336,32 @@ pub extern "C" fn hexagon_ort_value_read_string(v: &Value, executor: &ExecutorIm
 }
 
 #[no_mangle]
+pub extern "C" fn hexagon_ort_value_is_string(v: &Value, executor: &ExecutorImpl) -> u32 {
+    if !v.is_object() {
+        return 0;
+    }
+
+    let ctx = ValueContext::new(v, executor.get_object_pool());
+    match ctx.as_object_direct().as_any().downcast_ref::<String>() {
+        Some(_) => 1,
+        None => 0
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn hexagon_ort_value_to_object_handle<'a>(v: &Value, executor: &'a ExecutorImpl) -> *mut ObjectHandle<'a> {
     if let Value::Object(id) = *v {
         Box::into_raw(Box::new(executor.get_object_pool().get(id)))
     } else {
         null_mut()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_object_handle_to_object_proxy(handle: &ObjectHandle) -> *const ObjectProxy {
+    match handle.as_any().downcast_ref::<ObjectProxy>() {
+        Some(v) => v,
+        None => null()
     }
 }
 
@@ -378,6 +399,13 @@ pub extern "C" fn hexagon_ort_executor_pin_function(
 #[no_mangle]
 pub extern "C" fn hexagon_ort_object_proxy_create(data: *const ()) -> *mut ObjectProxy {
     Box::into_raw(Box::new(ObjectProxy::new(data)))
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_object_proxy_get_data(
+    p: &ObjectProxy
+) -> *const () {
+    p.data
 }
 
 #[no_mangle]

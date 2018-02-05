@@ -21,7 +21,7 @@ pub type OnToString = extern "C" fn (data: *const ()) -> *const c_char;
 pub type OnToBool = extern "C" fn (ret_place: *mut u32, data: *const ()) -> i32;
 
 pub struct ObjectProxy {
-    data: *const (),
+    pub(crate) data: *const (),
     pub(crate) destructor: Option<Destructor>,
     pub(crate) on_call: Option<OnCall>,
     pub(crate) on_get_field: Option<OnGetField>,
