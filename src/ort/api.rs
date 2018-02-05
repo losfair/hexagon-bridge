@@ -4,6 +4,7 @@ use std::ptr::{null, null_mut};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use hexagon_vm_core::executor::{Executor, ExecutorImpl};
 use hexagon_vm_core::value::{Value, ValueContext};
+use hexagon_vm_core::object_info::ObjectHandle;
 use hexagon_vm_core::function::Function;
 use hexagon_vm_core::function::VirtualFunctionInfo;
 use hexagon_vm_core::errors::VMError;
@@ -332,6 +333,20 @@ pub extern "C" fn hexagon_ort_value_read_string(v: &Value, executor: &ExecutorIm
         v,
         &executor.get_object_pool()
     ).to_str().as_ref()).unwrap().into_raw())).unwrap_or(null_mut())
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_value_to_object_handle<'a>(v: &Value, executor: &'a ExecutorImpl) -> *mut ObjectHandle<'a> {
+    if let Value::Object(id) = *v {
+        Box::into_raw(Box::new(executor.get_object_pool().get(id)))
+    } else {
+        null_mut()
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn hexagon_ort_object_handle_destroy(h: *mut ObjectHandle) {
+    Box::from_raw(h);
 }
 
 #[no_mangle]
