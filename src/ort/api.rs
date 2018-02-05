@@ -258,6 +258,32 @@ pub extern "C" fn hexagon_ort_function_load_virtual(
 }
 
 #[no_mangle]
+pub extern "C" fn hexagon_ort_function_dump_json(
+    f: &Function
+) -> *mut c_char {
+    if let Some(v) = f.to_virtual_info() {
+        if let Ok(v) = serde_json::to_string(&v) {
+            CString::new(v).unwrap().into_raw()
+        } else {
+            null_mut()
+        }
+    } else {
+        null_mut()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_function_debug_print(
+    f: &Function
+) {
+    if let Some(v) = f.to_virtual_info() {
+        eprintln!("{:?}", v);
+    } else {
+        eprintln!("(not printable)");
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn hexagon_ort_value_create_from_null(ret_place: *mut Value) {
     write_place(ret_place, Value::Null)
 }
@@ -368,6 +394,14 @@ pub extern "C" fn hexagon_ort_value_to_object_handle<'a>(v: &Value, executor: &'
 #[no_mangle]
 pub extern "C" fn hexagon_ort_object_handle_to_object_proxy(handle: &ObjectHandle) -> *const ObjectProxy {
     match handle.as_any().downcast_ref::<ObjectProxy>() {
+        Some(v) => v,
+        None => null()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_object_handle_to_function(handle: &ObjectHandle) -> *const Function {
+    match handle.as_any().downcast_ref::<Function>() {
         Some(v) => v,
         None => null()
     }
