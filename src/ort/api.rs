@@ -15,6 +15,11 @@ use rmp_serde;
 use serde_json;
 
 #[no_mangle]
+pub unsafe extern "C" fn hexagon_enable_debug() {
+    ::hexagon_vm_core::debug::enable();
+}
+
+#[no_mangle]
 pub extern "C" fn hexagon_ort_get_value_size() -> u32 {
     ::std::mem::size_of::<Value>() as u32
 }
