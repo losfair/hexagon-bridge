@@ -1,7 +1,7 @@
 use std::os::raw::c_char;
 use std::any::Any;
 use std::ffi::CString;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use smallvec::SmallVec;
 use hexagon_vm_core::executor::ExecutorImpl;
 use hexagon_vm_core::object::Object;
@@ -21,6 +21,8 @@ pub type OnToString = extern "C" fn (data: *const ()) -> *const c_char;
 pub type OnToBool = extern "C" fn (ret_place: *mut u32, data: *const ()) -> i32;
 
 pub struct ObjectProxy {
+    pub(crate) frozen: bool,
+    pub(crate) const_fields: HashSet<String>,
     pub(crate) data: *const (),
     pub(crate) destructor: Option<Destructor>,
     pub(crate) on_call: Option<OnCall>,
@@ -38,6 +40,8 @@ pub struct ObjectProxy {
 impl ObjectProxy {
     pub fn new(data: *const ()) -> ObjectProxy {
         ObjectProxy {
+            frozen: false,
+            const_fields: HashSet::new(),
             data: data,
             destructor: None,
             on_call: None,
@@ -117,6 +121,16 @@ impl Object for ObjectProxy {
             Some(ret_place)
         } else {
             panic!(VMError::from("Not implemented"));
+        }
+    }
+
+    fn has_const_field(&self, _pool: &ObjectPool, name: &str) -> bool {
+        if self.frozen {
+            true
+        } else if self.const_fields.contains(name) {
+            true
+        } else {
+            false
         }
     }
 }

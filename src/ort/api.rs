@@ -289,6 +289,18 @@ pub extern "C" fn hexagon_ort_function_debug_print(
 }
 
 #[no_mangle]
+pub extern "C" fn hexagon_ort_function_bind_this(
+    f: &Function,
+    v: &Value
+) -> i32 {
+    if let Err(_) = catch_unwind(AssertUnwindSafe(|| f.bind_this(*v))) {
+        1
+    } else {
+        0
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn hexagon_ort_value_create_from_null(ret_place: *mut Value) {
     write_place(ret_place, Value::Null)
 }
@@ -460,6 +472,22 @@ pub unsafe extern "C" fn hexagon_ort_object_proxy_destroy(
     p: *mut ObjectProxy
 ) {
     Box::from_raw(p);
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_object_proxy_freeze(
+    p: &mut ObjectProxy
+) {
+    p.frozen = true;
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_object_proxy_add_const_field(
+    p: &mut ObjectProxy,
+    name: *const c_char
+) {
+    let name = unsafe { CStr::from_ptr(name).to_str().unwrap() }.to_string();
+    p.const_fields.insert(name);
 }
 
 #[no_mangle]
