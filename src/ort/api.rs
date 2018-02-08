@@ -141,6 +141,28 @@ pub unsafe extern "C" fn hexagon_ort_executor_impl_set_stack_limit(
 }
 
 #[no_mangle]
+pub extern "C" fn hexagon_ort_executor_impl_get_argument(
+    ret_place: *mut Value,
+    e: &ExecutorImpl,
+    id: u32
+) -> i32 {
+    match e.get_current_frame().get_argument(id as usize) {
+        Some(v) => {
+            write_place(ret_place, v);
+            0
+        },
+        None => 1
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn hexagon_ort_executor_impl_get_n_arguments(
+    e: &ExecutorImpl
+) -> u32 {
+    e.get_current_frame().get_n_arguments() as u32
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn hexagon_ort_function_destroy(
     f: *mut Function
 ) {
